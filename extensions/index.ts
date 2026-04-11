@@ -210,7 +210,7 @@ async function startMeridianDaemon(
           const child = spawn("meridian", ["--port", String(port)], {
             detached: true,
             stdio: "ignore",
-            env: process.env,
+            env: { ...process.env, MERIDIAN_PASSTHROUGH: "true" },
           });
 
           child.unref();
