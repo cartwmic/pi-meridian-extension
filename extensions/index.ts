@@ -14,6 +14,7 @@ const STARTUP_WAIT_MS = 6000;
 const STARTUP_POLL_MS = 500;
 const DEFAULT_MODEL_INPUT: ("text" | "image")[] = ["text", "image"];
 const DEFAULT_CONTEXT_WINDOW = 200000;
+const EXTENDED_CONTEXT_WINDOW = 1000000;
 const SONNET_COST = { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 } as const;
 const OPUS_COST = { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 } as const;
 const HAIKU_COST = { input: 0.8, output: 4, cacheRead: 0.08, cacheWrite: 1 } as const;
@@ -399,7 +400,7 @@ export default function (pi: ExtensionAPI) {
         reasoning: true,
         input: DEFAULT_MODEL_INPUT,
         cost: OPUS_COST,
-        contextWindow: DEFAULT_CONTEXT_WINDOW,
+        contextWindow: EXTENDED_CONTEXT_WINDOW,
         maxTokens: 32000,
       },
       {
