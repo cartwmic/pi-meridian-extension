@@ -565,6 +565,14 @@ export default function (pi: ExtensionAPI) {
     const model = ctx.model;
     if (model?.provider !== "meridian") return;
 
+    // Skip health checks, auto-start, and version checks in subagent child
+    // processes. They inherit the Meridian provider config but don't need
+    // daemon management. These async operations (fetch, exec, setTimeout)
+    // keep the Node.js event loop alive and prevent the child process from
+    // exiting cleanly, which blocks the parent's worker pool.
+    const subagentDepth = Number(process.env.PI_SUBAGENT_DEPTH ?? "0");
+    if (subagentDepth > 0) return;
+
     try {
       const health = await fetchHealth(baseUrl);
       if (health.status !== "healthy" || !health.auth?.loggedIn) {
