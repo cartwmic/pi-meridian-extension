@@ -353,11 +353,27 @@ async function checkVersion(): Promise<VersionStatus> {
 // Extension
 // ---------------------------------------------------------------------------
 
-export default function (pi: ExtensionAPI) {
-  const baseUrl = getBaseUrl();
-  const port = getPortFromBaseUrl(baseUrl);
+type MeridianSource = "main" | "fork" | "subagent";
 
-  // Register the Meridian provider
+function getSubagentDepth(): number {
+  const depth = Number(process.env.PI_SUBAGENT_DEPTH ?? "0");
+  return Number.isFinite(depth) ? depth : 0;
+}
+
+function getMeridianSource(
+  sessionHeader?: { parentSession?: string } | null,
+  sessionStartReason?: string
+): MeridianSource {
+  if (getSubagentDepth() > 0) return "subagent";
+  if (sessionHeader?.parentSession || sessionStartReason === "fork") return "fork";
+  return "main";
+}
+
+function registerMeridianProvider(
+  pi: ExtensionAPI,
+  baseUrl: string,
+  source: MeridianSource
+): void {
   pi.registerProvider("meridian", {
     baseUrl,
     apiKey: "meridian", // Placeholder — Meridian authenticates via Claude Code SDK
@@ -365,6 +381,7 @@ export default function (pi: ExtensionAPI) {
     authHeader: true,
     headers: {
       "x-meridian-agent": "pi",
+      "x-meridian-source": source,
     },
     models: [
       {
@@ -414,6 +431,13 @@ export default function (pi: ExtensionAPI) {
       },
     ],
   });
+}
+
+export default function (pi: ExtensionAPI) {
+  const baseUrl = getBaseUrl();
+  const port = getPortFromBaseUrl(baseUrl);
+
+  registerMeridianProvider(pi, baseUrl, getMeridianSource());
 
   pi.on("before_provider_request", (event, ctx) => {
     if (ctx.model?.provider !== "meridian") return;
@@ -561,7 +585,13 @@ export default function (pi: ExtensionAPI) {
   });
 
   // Auto-start Meridian on session start if provider is active and proxy is down
-  pi.on("session_start", async (_event, ctx) => {
+  pi.on("session_start", async (event, ctx) => {
+    registerMeridianProvider(
+      pi,
+      baseUrl,
+      getMeridianSource(ctx.sessionManager.getHeader(), event.reason)
+    );
+
     const model = ctx.model;
     if (model?.provider !== "meridian") return;
 
@@ -570,7 +600,7 @@ export default function (pi: ExtensionAPI) {
     // daemon management. These async operations (fetch, exec, setTimeout)
     // keep the Node.js event loop alive and prevent the child process from
     // exiting cleanly, which blocks the parent's worker pool.
-    const subagentDepth = Number(process.env.PI_SUBAGENT_DEPTH ?? "0");
+    const subagentDepth = getSubagentDepth();
     if (subagentDepth > 0) return;
 
     try {
