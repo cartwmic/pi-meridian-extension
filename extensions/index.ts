@@ -211,7 +211,15 @@ async function startMeridianDaemon(
           const child = spawn("meridian", ["--port", String(port)], {
             detached: true,
             stdio: "ignore",
-            env: { ...process.env, MERIDIAN_PASSTHROUGH: "true" },
+            env: {
+              ...process.env,
+              MERIDIAN_PASSTHROUGH: "true",
+              // Hold one live SDK query() per logical session so resumed
+              // turns hit Anthropic's prompt cache and the per-query
+              // maxTurns cap no longer truncates long Opus+thinking-high
+              // reasoning runs (meridian strips maxTurns in persistent mode).
+              MERIDIAN_PERSISTENT_SESSIONS: "1",
+            },
           });
 
           child.unref();
